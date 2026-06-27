@@ -1,53 +1,47 @@
 import React from 'react';
-import { LineChart, Line, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { LineChart, Line, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
 import useStore from '../engine/gameState';
 
 export default function GridChart() {
-  // Use selector to only re-render when history changes
-  const history = useStore((state) => state.history);
+  const history = useStore((state) => state.history || []);
 
   return (
     <div style={{ 
-      background: '#0a0a0f', 
+      width: '100%', 
+      height: '300px', 
+      background: 'rgba(0, 0, 0, 0.7)', 
       padding: '20px', 
       borderRadius: '8px', 
-      border: '1px solid #1a1a2e',
-      height: '300px',
+      border: '1px solid #333',
+      borderTop: '4px solid #00f3ff',
+      boxSizing: 'border-box', // CRITICAL: Forces padding to be included in width
       display: 'flex',
       flexDirection: 'column'
     }}>
-      <h3 style={{ color: '#fff', fontSize: '14px', letterSpacing: '2px', marginBottom: '20px', marginTop: 0 }}>
-        BATTERY STABILITY TREND
-      </h3>
+      <h4 style={{ 
+        margin: '0 0 15px 0', 
+        color: '#00f3ff', 
+        fontSize: '14px', 
+        textTransform: 'uppercase', 
+        letterSpacing: '2px' 
+      }}>
+        Battery Telemetry History
+      </h4>
       
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={history}>
-          <YAxis 
-            domain={[0, 100]} 
-            stroke="#444" 
-            tick={{fontSize: 10, fill: '#666'}} 
-            axisLine={false} 
-            tickLine={false} 
-          />
-          <Tooltip 
-            contentStyle={{ 
-              background: '#000', 
-              border: '1px solid #00f3ff', 
-              borderRadius: '4px',
-              fontSize: '12px'
-            }} 
-            itemStyle={{ color: '#00f3ff' }}
-          />
-          <Line 
-            type="monotone" 
-            dataKey="battery" // This must match the key used in gameState history
-            stroke="#00f3ff" 
-            strokeWidth={3} 
-            dot={false} 
-            isAnimationActive={false} 
-          />
-        </LineChart>
-      </ResponsiveContainer>
+      {/* 
+         Wrapper with a fixed block display. 
+         ResponsiveContainer will now respect this parent exactly.
+      */}
+      <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={history} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+            <YAxis domain={[0, 100]} stroke="#666" tick={{ fontSize: 10 }} />
+            <Tooltip contentStyle={{ background: '#000', border: '1px solid #00f3ff' }} />
+            <Line type="monotone" dataKey="battery" stroke="#00f3ff" strokeWidth={2} dot={false} isAnimationActive={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }

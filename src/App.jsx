@@ -39,15 +39,18 @@ export default function App() {
 
   const getNavBtnStyle = (tabName) => ({
     padding: '12px 30px',
-    background: activeTab === tabName ? '#00f3ff' : '#0a0a0f',
-    color: activeTab === tabName ? '#000' : '#00f3ff',
-    border: `1px solid #00f3ff`,
+    // Soft translucent background for active, almost transparent for inactive
+    background: activeTab === tabName ? 'rgba(0, 243, 255, 0.15)' : 'rgba(0, 243, 255, 0.02)',
+    color: activeTab === tabName ? '#ffffff' : '#00f3ff', 
+    border: `1px solid ${activeTab === tabName ? '#00f3ff' : 'rgba(0, 243, 255, 0.4)'}`,
     borderRadius: '4px',
     cursor: 'pointer',
-    fontWeight: '900',
+    fontWeight: 'bold', // Lowered from 900 to normal bold to reduce strain
     letterSpacing: '2px',
     transition: 'all 0.2s ease',
-    boxShadow: activeTab === tabName ? '0 0 15px rgba(0, 243, 255, 0.4)' : 'none'
+    // Softer ambient shadows instead of harsh laser glows
+    boxShadow: activeTab === tabName ? '0 0 10px rgba(0, 243, 255, 0.2)' : '0 0 6px rgba(0, 243, 255, 0.1)',
+    textShadow: activeTab === tabName ? '0 0 8px #ffffff' : '0 0 4px rgba(0, 243, 255, 0.4)'
   });
 
   return (
