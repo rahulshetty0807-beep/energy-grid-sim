@@ -1,97 +1,138 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import useStore from './engine/gameState';
+
+// Importing your simulation engine
 import { startSimulation, stopSimulation } from './engine/simulationEngine';
 
-// Import all UI Components
+// Importing all UI Components
 import MasterVisualizer from './components/MasterVisualizer';
 import Dashboard from './components/Dashboard';
 import SystemLog from './components/SystemLog';
 import GridChart from './components/GridChart';
 import ControlPanel from './components/ControlPanel';
+import TransformerList from './components/TransformerList';
 
 export default function App() {
   const loadGame = useStore((state) => state.loadGame);
-  
-  // This state controls which "Page" we are looking at
   const [activeTab, setActiveTab] = useState('TELEMETRY');
+  const isSimRunning = useRef(false);
 
+  // 1. Unified Simulation Lifecycle
   useEffect(() => {
-    loadGame();
-    startSimulation();
-    return () => stopSimulation();
+    // Ensure we only initialize the store and simulation once
+    if (typeof loadGame === 'function') {
+      loadGame();
+    }
+    
+    if (!isSimRunning.current) {
+      startSimulation();
+      isSimRunning.current = true;
+    }
+    
+    // Cleanup on component unmount
+    return () => {
+      stopSimulation();
+      isSimRunning.current = false;
+    };
   }, [loadGame]);
 
-  // Styles for our Navigation Buttons
-  const navBtnStyle = (tabName) => ({
-    padding: '12px 25px',
-    background: activeTab === tabName ? '#00ccff' : '#1e1e24',
-    color: activeTab === tabName ? '#000' : '#fff',
-    border: `1px solid ${activeTab === tabName ? '#00ccff' : '#333'}`,
-    borderRadius: '5px',
+  const getNavBtnStyle = (tabName) => ({
+    padding: '12px 30px',
+    background: activeTab === tabName ? '#00f3ff' : '#0a0a0f',
+    color: activeTab === tabName ? '#000' : '#00f3ff',
+    border: `1px solid #00f3ff`,
+    borderRadius: '4px',
     cursor: 'pointer',
-    fontWeight: 'bold',
-    letterSpacing: '1px',
-    transition: 'all 0.2s'
+    fontWeight: '900',
+    letterSpacing: '2px',
+    transition: 'all 0.2s ease',
+    boxShadow: activeTab === tabName ? '0 0 15px rgba(0, 243, 255, 0.4)' : 'none'
   });
 
   return (
-    <div style={{ background: '#0a0a0f', minHeight: '100vh', padding: '30px', color: '#ffffff', fontFamily: 'sans-serif' }}>
+    <div className="app-container" style={{ 
+      background: '#000', 
+      minHeight: '100vh', 
+      padding: '30px', 
+      color: '#fff', 
+      fontFamily: '"Courier New", Courier, monospace' 
+    }}>
       
-      <div style={{ maxWidth: '1200px', margin: 'auto' }}>
+      <div style={{ maxWidth: '1400px', margin: 'auto' }}>
         
-        {/* --- NAVIGATION HEADER --- */}
-        <div style={{ 
+        {/* --- GLOBAL NAVIGATION HEADER --- */}
+        <header style={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center', 
-          borderBottom: '1px solid #333', 
+          borderBottom: '2px solid rgba(0, 243, 255, 0.3)', 
           paddingBottom: '20px', 
-          marginBottom: '30px' 
+          marginBottom: '35px' 
         }}>
-          <h1 style={{ color: '#00ccff', letterSpacing: '2px', margin: 0, fontSize: '24px' }}>
-            GLOBAL GRID COMMAND SYSTEM
-          </h1>
+          <div>
+            <h1 style={{ 
+              color: '#00f3ff', 
+              letterSpacing: '4px', 
+              margin: '0 0 5px 0', 
+              fontSize: '28px', 
+              textShadow: '0 0 10px #00f3ff' 
+            }}>
+              GLOBAL GRID COMMAND
+            </h1>
+            <div style={{ fontSize: '12px', color: '#666', letterSpacing: '2px' }}>
+              SECURE UPLINK ESTABLISHED // SECTOR: OMEGA
+            </div>
+          </div>
           
-          <div style={{ display: 'flex', gap: '15px' }}>
-            <button style={navBtnStyle('TELEMETRY')} onClick={() => setActiveTab('TELEMETRY')}>
-              📡 TELEMETRY ENGINE
+          <div style={{ display: 'flex', gap: '20px' }}>
+            <button style={getNavBtnStyle('TELEMETRY')} onClick={() => setActiveTab('TELEMETRY')}>
+              DATA TELEMETRY
             </button>
-            <button style={navBtnStyle('GRID')} onClick={() => setActiveTab('GRID')}>
-              ⚡ POWER GRID NODES
+            <button style={getNavBtnStyle('GRID')} onClick={() => setActiveTab('GRID')}>
+              3D HOLOGRAPHICS
             </button>
           </div>
-        </div>
+        </header>
         
-        {/* --- PAGE 1: TELEMETRY ENGINE (Main Dashboard) --- */}
-        {activeTab === 'TELEMETRY' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <Dashboard />
-              <SystemLog />
+        {/* --- VIEW TRANSITION CONTAINER --- */}
+        <main className="view-transition">
+          {activeTab === 'TELEMETRY' ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '30px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                <Dashboard />
+                <TransformerList />
+                <SystemLog />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                <GridChart />
+                <ControlPanel />
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <GridChart />
-              <ControlPanel />
+          ) : (
+            <div>
+              <MasterVisualizer />
+              <div style={{ marginTop: '30px', maxWidth: '800px', margin: '30px auto 0' }}>
+                 <ControlPanel layout="horizontal" />
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* --- PAGE 2: POWER GRID (The 15-Node Transformer Map) --- */}
-        {activeTab === 'GRID' && (
-          <div style={{ animation: 'fadeIn 0.3s ease-in-out' }}>
-            <MasterVisualizer />
-            
-            {/* Added a control panel here too, so you can repair the grid while looking at it */}
-            <div style={{ marginTop: '20px', maxWidth: '600px', margin: '20px auto 0' }}>
-               <ControlPanel />
-            </div>
-          </div>
-        )}
+          )}
+        </main>
 
       </div>
 
+      {/* Global Transition Animations & Scrollbar Styles */}
       <style>{`
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .view-transition {
+          animation: fadeSlideUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+        @keyframes fadeSlideUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; }
+        ::-webkit-scrollbar-thumb { background: #00f3ff; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #fff; }
       `}</style>
     </div>
   );

@@ -1,3 +1,4 @@
+import React from 'react';
 import { LineChart, Line, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import useStore from '../engine/gameState';
 
@@ -5,13 +6,48 @@ export default function GridChart() {
   const history = useStore((state) => state.history);
 
   return (
-    <div style={{ width: '100%', height: '250px', background: '#1e1e1e', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
-      <h4 style={{ margin: '0 0 15px 0', color: '#aaa' }}>Battery History</h4>
+    <div style={{ 
+      background: '#0a0a0f', 
+      padding: '20px', 
+      borderRadius: '8px', 
+      border: '1px solid #1a1a2e',
+      height: '300px',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      <h3 style={{ color: '#fff', fontSize: '14px', letterSpacing: '2px', marginBottom: '20px', marginTop: 0 }}>
+        BATTERY STABILITY TREND
+      </h3>
+      
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={history}>
-          <YAxis domain={[0, 100]} stroke="#666" />
-          <Tooltip contentStyle={{ background: '#333', border: 'none', color: '#fff' }} />
-          <Line type="monotone" dataKey="battery" stroke="#00ccff" strokeWidth={3} dot={false} isAnimationActive={false} />
+          {/* Custom Y-Axis for cleaner terminal look */}
+          <YAxis 
+            domain={[0, 100]} 
+            stroke="#444" 
+            tick={{fontSize: 10, fill: '#666'}} 
+            axisLine={false} 
+            tickLine={false} 
+          />
+          
+          <Tooltip 
+            contentStyle={{ 
+              background: '#000', 
+              border: '1px solid #00f3ff', 
+              borderRadius: '4px',
+              fontSize: '12px'
+            }} 
+            itemStyle={{ color: '#00f3ff' }}
+          />
+          
+          <Line 
+            type="monotone" 
+            dataKey="battery" 
+            stroke="#00f3ff" 
+            strokeWidth={3} 
+            dot={false} 
+            isAnimationActive={false} 
+          />
         </LineChart>
       </ResponsiveContainer>
     </div>
