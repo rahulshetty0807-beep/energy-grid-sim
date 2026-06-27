@@ -4,89 +4,86 @@ let requestRef;
 let lastTimestamp = 0;
 
 export const startSimulation = () => {
+  lastTimestamp = 0; 
+
   const animate = (timestamp) => {
     if (!lastTimestamp) lastTimestamp = timestamp;
-    const deltaTime = (timestamp - lastTimestamp) / 1000;
+    const deltaTime = Math.min((timestamp - lastTimestamp) / 1000, 0.1); 
     lastTimestamp = timestamp;
 
     const state = useStore.getState();
+    console.log("Engine Sending Update:", { time: state.time, battery: state.batteryLevel });
 
-    if (!state.settings.isPaused) {
-      const timeStep = deltaTime * state.settings.speed;
-      const nextTime = (state.time + (timeStep * 0.5)) % 24;
+    // Only run if the system is powered and not paused
+    if (!state.settings.isPaused && !state.isBlackout) {
+      const timeStep = deltaTime * (state.settings.speed || 1);
+      const currentTime = typeof state.time === 'number' ? state.time : 0;
+      const nextTime = (currentTime + (timeStep * 0.5)) % 24;
 
-      // 1. Environment Simulation
-      let ambientTemp = 25;
-      let solarMult = 1, windMult = 1, demandMult = 1;
-
+      // 1. ENVIRONMENTAL SYSTEM
+      let ambientTemp = 25, solarMult = 1, windMult = 1, demandMult = 1;
       if (state.weather === 'STORM') { solarMult = 0.1; windMult = 2.5; ambientTemp = 15; } 
-      else if (state.weather === 'HEATWAVE') { solarMult = 1.2; windMult = 0.3; demandMult = 1.3; ambientTemp = 45; }
+      else if (state.weather === 'HEATWAVE') { solarMult = 1.2; windMult = 0.3; demandMult = 1.4; ambientTemp = 45; }
 
       const sunIntensity = Math.max(0, Math.sin((nextTime / 24) * Math.PI * 2 - Math.PI / 2)) * solarMult;
       const windSpeed = Math.max(0, 0.5 + Math.sin(nextTime) * 0.5 + (Math.random() * 0.2)) * windMult;
-      
-      const solarGen = state.settings.solarCapacity * sunIntensity;
-      const windGen = state.settings.windCapacity * windSpeed;
-      const currentDemand = 450 * demandMult;
+      const solarGen = (state.settings?.solarCapacity ?? 250) * sunIntensity;
+      const windGen = (state.settings?.windCapacity ?? 200) * windSpeed;
+      const currentDemand = 500 * demandMult;
 
-      // 2. Transformer Telemetry Engine
-      let totalEfficiency = 0;
+      // 2. THERMODYNAMIC & SECTOR ENGINE
+      let logsToPush = []; 
       const updatedTransformers = state.transformers.map(tx => {
+        // Auto-Repair Logic
+        if (tx.status === 'FAILED') {
+            if (tx.cooling > 90 && Math.random() < 0.01) return { ...tx, status: 'ONLINE', temp: 50 };
+            return tx;
+        }
+
+        // Sector Load Distribution
         let load = 0;
+        if (tx.sector.includes('Sector 1')) load = tx.id.includes('Solar') ? solarGen / 2 : windGen;
+        else if (tx.sector.includes('Sector 2')) load = (solarGen + windGen) / 3; 
+        else if (tx.sector.includes('Sector 3')) load = currentDemand * 0.5 / 3;
+        else if (tx.sector.includes('Sector 4')) load = currentDemand * 0.3 / 3;
+        else if (tx.sector.includes('Sector 5')) load = currentDemand * 0.2 / 3;
+
+        load = Math.max(0, load + (Math.random() * 10 - 5));
+        const loadRatio = load / (tx.cap || 1);
         
-        // Distribute load based on type
-        if (tx.type === 'STEP-UP') {
-          load = tx.id.includes('Solar') ? solarGen / 2 : windGen;
-        } else if (tx.type === 'TRANSMISSION') {
-          load = (solarGen + windGen) / 4; 
-        } else if (tx.type === 'DISTRIBUTION') {
-          load = currentDemand / 8; // simplified distribution
-        }
+        // Heat Dynamics
+        let newTemp = tx.temp + ((Math.pow(loadRatio, 1.6) * 70) - 2) * deltaTime;
+        let newCooling = Math.max(0, tx.cooling - (newTemp > 85 ? deltaTime * 5 : -deltaTime));
+        if (newCooling < 30) newTemp += deltaTime * 20;
 
-        // Add variance
-        load += (Math.random() * 10 - 5);
-        if (load < 0) load = 0;
+        let newStatus = newTemp > 120 ? 'FAILED' : 'ONLINE';
+        if (newStatus === 'FAILED' && tx.status !== 'FAILED') logsToPush.push(`CRITICAL: ${tx.id} MELTDOWN!`);
 
-        // Thermal Dynamics Math
-        const loadRatio = load / tx.cap;
-        let newTemp = ambientTemp + (Math.pow(loadRatio, 1.5) * 60);
-        
-        // Decay & Failure Logic
-        let newEff = tx.eff;
-        let newStatus = 'ONLINE';
-
-        if (newTemp > 95 && Math.random() < 0.01) {
-          newEff -= 0.05; // Thermal degradation
-        }
-        if (newEff < 0.8) newStatus = 'DEGRADED';
-        if (newTemp > 120 || newEff < 0.4) {
-          newEff = 0;
-          newStatus = 'FAILED';
-          if (tx.status !== 'FAILED') state.addLog(`CRITICAL: ${tx.id} Melted Down!`);
-        }
-
-        totalEfficiency += newEff;
-
-        return { ...tx, load, temp: newTemp, eff: Math.max(0, newEff), status: newStatus };
+        return { ...tx, load: isNaN(load) ? 0 : load, temp: newTemp, status: newStatus, cooling: newCooling };
       });
 
-      const avgEfficiency = totalEfficiency / 15;
+      // 3. GRID METRICS & SCORING
+      const onlineNodes = updatedTransformers.filter(t => t.status === 'ONLINE').length;
+      const avgEfficiency = updatedTransformers.length > 0 ? (onlineNodes / updatedTransformers.length) : 0;
       const netPower = ((solarGen + windGen) * avgEfficiency) - currentDemand;
-      const batteryDelta = (netPower / 60) * timeStep;
-      let nextBattery = Math.min(100, Math.max(0, state.batteryLevel + batteryDelta));
+      let nextBattery = Math.min(100, Math.max(0, state.batteryLevel + (netPower / 60) * timeStep));
+      const newScore = (state.score || 0) + (onlineNodes * deltaTime);
 
       if (Math.random() < 0.0002) {
         const weathers = ['CLEAR', 'STORM', 'HEATWAVE'];
         state.triggerWeatherEvent(weathers[Math.floor(Math.random() * weathers.length)]);
       }
 
+      // 4. BATCH UPDATE
       state.updateState({
         time: nextTime,
         batteryLevel: nextBattery,
-        isBlackout: nextBattery <= 0,
+        isBlackout: nextBattery <= 0 || avgEfficiency < 0.2,
         gridEfficiency: avgEfficiency,
         demand: currentDemand,
-        transformers: updatedTransformers
+        score: newScore,
+        transformers: updatedTransformers,
+        logs: [...logsToPush.map(log => `[${nextTime.toFixed(1)}h] ${log}`), ...state.logs].slice(0, 20)
       });
     }
     requestRef = requestAnimationFrame(animate);
@@ -94,4 +91,7 @@ export const startSimulation = () => {
   requestRef = requestAnimationFrame(animate);
 };
 
-export const stopSimulation = () => cancelAnimationFrame(requestRef);
+export const stopSimulation = () => {
+  cancelAnimationFrame(requestRef);
+  lastTimestamp = 0;
+};
