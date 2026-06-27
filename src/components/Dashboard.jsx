@@ -8,8 +8,12 @@ const formatTime = (t) => {
 };
 
 export default function Dashboard() {
-  // Use optional chaining for all store properties to be safe
-  const { time, batteryLevel, demand, gridEfficiency, score, settings } = useStore();
+  const time = useStore((state) => state.time);
+  const batteryLevel = useStore((state) => state.batteryLevel);
+  const demand = useStore((state) => state.demand);
+  const gridEfficiency = useStore((state) => state.gridEfficiency);
+  const score = useStore((state) => state.score);
+  const settings = useStore((state) => state.settings);
 
   const statItemStyle = {
     padding: '15px',
@@ -59,7 +63,6 @@ export default function Dashboard() {
 
       <div style={{ gridColumn: 'span 2', padding: '10px 15px', background: 'rgba(0, 243, 255, 0.05)', borderRadius: '4px', border: '1px solid #1a1a2e', fontSize: '12px', color: '#888' }}>
         <strong>CAPACITIES:</strong> 
-        {/* Safe navigation for nested settings object */}
         SOLAR ({settings?.solarCapacity?.toFixed(0) ?? 0}) | 
         WIND ({settings?.windCapacity?.toFixed(0) ?? 0})
       </div>
