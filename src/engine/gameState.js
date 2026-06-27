@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 
-// Initial Transformer Configuration
 const initialTransformers = [
   ...Array.from({length: 3}, (_, i) => ({ id: `TX-G${i+1}`, sector: 'Sector 1: Generation Core', role: 'Gen Node', cap: 150, load: 0, temp: 35, status: 'ONLINE', voltage: '345kV', cooling: 100, eff: 1 })),
   ...Array.from({length: 3}, (_, i) => ({ id: `SUB-${i}`, sector: 'Sector 2: Heavy Transmission', role: 'Substation', cap: 250, load: 0, temp: 40, status: 'ONLINE', voltage: '500kV', cooling: 100, eff: 1 })),
@@ -10,29 +9,50 @@ const initialTransformers = [
 ];
 
 const useStore = create((set) => ({
+  // Core State
   time: 0, 
   batteryLevel: 50, 
   demand: 500, 
   gridEfficiency: 1.0, 
   isBlackout: false,
+  score: 0,
+  history: [], 
   logs: ["Telemetry System Online..."], 
   weather: 'CLEAR',
   transformers: initialTransformers,
-  settings: { isPaused: false, solarCapacity: 250, windCapacity: 200 }, // Added missing capacity keys
+  settings: { isPaused: false, solarCapacity: 250, windCapacity: 200, speed: 1 },
 
-  // Unified action to update simulation data
-  // Add this alias in your gameState.js (next to updateGrid)
-  updateState: (newData) => set((state) => ({ ...state, ...newData })),
-  
-  // NEW: Add these to match your simulationEngine.js calls
-  addLog: (msg) => set((state) => ({ logs: [msg, ...state.logs].slice(0, 20) })),
-  triggerWeatherEvent: (weather) => set({ weather }),
+  // Bulletproof Unified State Update
+  updateState: (newData) => set((state) => {
+    // 1. Safety Guard: Check if newData is valid
+    if (!newData) return state;
+
+    // 2. Extract batteryLevel with a fallback to avoid undefined/NaN errors
+    const currentBattery = typeof newData.batteryLevel === 'number' ? newData.batteryLevel : state.batteryLevel;
+    
+    // 3. Prevent history from becoming corrupted
+    const cleanBatteryValue = parseFloat(currentBattery.toFixed(1));
+    const newHistory = [...state.history, { battery: cleanBatteryValue }].slice(-30);
+
+    return { 
+      ...state, 
+      ...newData,
+      batteryLevel: currentBattery, // Ensure state matches the validated value
+      history: newHistory 
+    };
+  }),
 
   // UI Actions
-  togglePause: () => set((state) => ({ settings: { ...state.settings, isPaused: !state.settings.isPaused } })),
+  addLog: (msg) => set((state) => ({ logs: [msg, ...state.logs].slice(0, 20) })),
+  triggerWeatherEvent: (weather) => set({ weather }),
+  togglePause: () => set((state) => ({ 
+    settings: { ...state.settings, isPaused: !state.settings.isPaused } 
+  })),
   repairGrid: () => set((state) => ({
     isBlackout: false,
-    transformers: state.transformers.map(t => ({ ...t, status: 'ONLINE', temp: 35, load: 0, eff: 1 }))
+    transformers: state.transformers.map(t => ({ 
+      ...t, status: 'ONLINE', temp: 35, load: 0, eff: 1 
+    }))
   }))
 }));
 

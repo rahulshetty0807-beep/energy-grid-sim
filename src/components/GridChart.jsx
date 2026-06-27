@@ -3,6 +3,7 @@ import { LineChart, Line, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import useStore from '../engine/gameState';
 
 export default function GridChart() {
+  // Use selector to only re-render when history changes
   const history = useStore((state) => state.history);
 
   return (
@@ -21,7 +22,6 @@ export default function GridChart() {
       
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={history}>
-          {/* Custom Y-Axis for cleaner terminal look */}
           <YAxis 
             domain={[0, 100]} 
             stroke="#444" 
@@ -29,7 +29,6 @@ export default function GridChart() {
             axisLine={false} 
             tickLine={false} 
           />
-          
           <Tooltip 
             contentStyle={{ 
               background: '#000', 
@@ -39,10 +38,9 @@ export default function GridChart() {
             }} 
             itemStyle={{ color: '#00f3ff' }}
           />
-          
           <Line 
             type="monotone" 
-            dataKey="battery" 
+            dataKey="battery" // This must match the key used in gameState history
             stroke="#00f3ff" 
             strokeWidth={3} 
             dot={false} 

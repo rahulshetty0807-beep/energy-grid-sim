@@ -135,6 +135,7 @@ export default function App() {
         ::-webkit-scrollbar-thumb { background: #00f3ff; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #fff; }
       `}</style>
+      
     </div>
   );
 }
