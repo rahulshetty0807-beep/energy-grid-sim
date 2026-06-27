@@ -18,11 +18,16 @@ const useStore = create((set) => ({
   logs: ["Telemetry System Online..."], 
   weather: 'CLEAR',
   transformers: initialTransformers,
-  settings: { isPaused: false },
+  settings: { isPaused: false, solarCapacity: 250, windCapacity: 200 }, // Added missing capacity keys
 
   // Unified action to update simulation data
-  updateGrid: (newData) => set((state) => ({ ...state, ...newData })),
+  // Add this alias in your gameState.js (next to updateGrid)
+  updateState: (newData) => set((state) => ({ ...state, ...newData })),
   
+  // NEW: Add these to match your simulationEngine.js calls
+  addLog: (msg) => set((state) => ({ logs: [msg, ...state.logs].slice(0, 20) })),
+  triggerWeatherEvent: (weather) => set({ weather }),
+
   // UI Actions
   togglePause: () => set((state) => ({ settings: { ...state.settings, isPaused: !state.settings.isPaused } })),
   repairGrid: () => set((state) => ({

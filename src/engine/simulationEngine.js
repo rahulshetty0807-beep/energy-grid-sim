@@ -4,21 +4,21 @@ let requestRef;
 let lastTimestamp = 0;
 
 export const startSimulation = () => {
-  lastTimestamp = 0; // FIX 1: Reset timestamp on start to prevent massive delta spikes
+  lastTimestamp = 0; // Reset timestamp to ensure clean starts
 
   const animate = (timestamp) => {
     if (!lastTimestamp) lastTimestamp = timestamp;
     
-    // FIX 2: Clamp deltaTime to 0.1s to prevent "teleporting" time 
-    // if the user switches tabs or the browser hangs.
+    // Clamp delta to 0.1s to prevent physics explosions if tab is inactive
     const deltaTime = Math.min((timestamp - lastTimestamp) / 1000, 0.1); 
     lastTimestamp = timestamp;
 
     const state = useStore.getState();
 
     if (!state.settings.isPaused && !state.isBlackout) {
-      const timeStep = deltaTime * state.settings.speed;
-      const nextTime = (state.time + (timeStep * 0.5)) % 24;
+      const timeStep = deltaTime * (state.settings.speed || 1);
+      const currentTime = typeof state.time === 'number' ? state.time : 0;
+      const nextTime = (currentTime + (timeStep * 0.5)) % 24;
 
       let ambientTemp = 25, solarMult = 1, windMult = 1, demandMult = 1;
       if (state.weather === 'STORM') { solarMult = 0.1; windMult = 2.5; ambientTemp = 15; } 
@@ -27,16 +27,21 @@ export const startSimulation = () => {
       const sunIntensity = Math.max(0, Math.sin((nextTime / 24) * Math.PI * 2 - Math.PI / 2)) * solarMult;
       const windSpeed = Math.max(0, 0.5 + Math.sin(nextTime) * 0.5 + (Math.random() * 0.2)) * windMult;
       
-      const solarGen = state.settings.solarCapacity * sunIntensity;
-      const windGen = state.settings.windCapacity * windSpeed;
+      // Use defaults to prevent NaN
+      const solarCap = state.settings?.solarCapacity ?? 250;
+      const windCap = state.settings?.windCapacity ?? 200;
+      const solarGen = solarCap * sunIntensity;
+      const windGen = windCap * windSpeed;
       const currentDemand = 500 * demandMult;
 
       let totalEfficiency = 0;
       let activeNodes = 0;
-      let logsToPush = []; // Batch logs to avoid repeated state calls
+      let logsToPush = []; 
 
       const updatedTransformers = state.transformers.map(tx => {
         let load = 0;
+        
+        // Sector Load Distribution
         if (tx.sector.includes('Sector 1')) load = tx.id.includes('Solar') ? solarGen / 2 : windGen;
         else if (tx.sector.includes('Sector 2')) load = (solarGen + windGen) / 3; 
         else if (tx.sector.includes('Sector 3')) load = currentDemand * 0.5 / 3;
@@ -46,7 +51,7 @@ export const startSimulation = () => {
         load += (Math.random() * 10 - 5);
         load = Math.max(0, load);
 
-        const loadRatio = load / tx.cap;
+        const loadRatio = load / (tx.cap || 1);
         let newCooling = tx.cooling;
         let newTemp = ambientTemp + (Math.pow(loadRatio, 1.6) * 70);
         
@@ -69,7 +74,14 @@ export const startSimulation = () => {
           activeNodes++;
         }
 
-        return { ...tx, load, temp: newTemp, eff: Math.max(0, newEff), status: newStatus, cooling: newCooling };
+        return { 
+          ...tx, 
+          load: isNaN(load) ? 0 : load, 
+          temp: isNaN(newTemp) ? 35 : newTemp, 
+          eff: Math.max(0, newEff), 
+          status: newStatus, 
+          cooling: newCooling 
+        };
       });
 
       const avgEfficiency = activeNodes > 0 ? (totalEfficiency / 15) : 0;
@@ -82,8 +94,7 @@ export const startSimulation = () => {
         state.triggerWeatherEvent(weathers[Math.floor(Math.random() * weathers.length)]);
       }
 
-      // FIX 3: Batch all updates into a single call.
-      // This prevents the "render loop" that causes the Call Stack error.
+      // Batch all updates into a single call to prevent render loops
       state.updateState({
         time: nextTime,
         batteryLevel: nextBattery,
@@ -94,9 +105,14 @@ export const startSimulation = () => {
         logs: [...logsToPush.map(log => `[${nextTime.toFixed(1)}h] ${log}`), ...state.logs].slice(0, 20)
       });
     }
+    
     requestRef = requestAnimationFrame(animate);
   };
+  
   requestRef = requestAnimationFrame(animate);
 };
 
-export const stopSimulation = () => cancelAnimationFrame(requestRef);
+export const stopSimulation = () => {
+  cancelAnimationFrame(requestRef);
+  lastTimestamp = 0;
+};

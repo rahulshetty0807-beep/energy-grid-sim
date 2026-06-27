@@ -22,6 +22,7 @@ export default function App() {
     // Ensure we only initialize the store and simulation once
     if (typeof loadGame === 'function') {
       loadGame();
+      console.log("Starting Simulation Engine...");
     }
     
     if (!isSimRunning.current) {
