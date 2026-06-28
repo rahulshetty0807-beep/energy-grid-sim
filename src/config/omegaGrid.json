@@ -1,0 +1,25 @@
+{
+  "gridName": "Omega Regional Grid",
+  "baseDemand": 900,
+  "nodes": [
+    { "id": "GEN-A1", "sector": "Sector 1: Generation Core", "type": "generator", "capacity": 300, "voltage": "345kV", "connections": ["SUB-1"] },
+    { "id": "GEN-A2", "sector": "Sector 1: Generation Core", "type": "generator", "capacity": 300, "voltage": "345kV", "connections": ["SUB-1"] },
+    { "id": "GEN-A3", "sector": "Sector 1: Generation Core", "type": "generator", "capacity": 300, "voltage": "345kV", "connections": ["SUB-2"] },
+    
+    { "id": "SUB-1", "sector": "Sector 2: Heavy Transmission", "type": "substation", "capacity": 500, "voltage": "500kV", "connections": ["IND-1", "IND-2"] },
+    { "id": "SUB-2", "sector": "Sector 2: Heavy Transmission", "type": "substation", "capacity": 500, "voltage": "500kV", "connections": ["IND-3", "COM-1"] },
+    { "id": "SUB-3", "sector": "Sector 2: Heavy Transmission", "type": "substation", "capacity": 500, "voltage": "500kV", "connections": ["COM-2", "RES-1"] },
+    
+    { "id": "IND-1", "sector": "Sector 3: Industrial District", "type": "consumer", "capacity": 300, "voltage": "13.8kV", "connections": [] },
+    { "id": "IND-2", "sector": "Sector 3: Industrial District", "type": "consumer", "capacity": 300, "voltage": "13.8kV", "connections": [] },
+    { "id": "IND-3", "sector": "Sector 3: Industrial District", "type": "consumer", "capacity": 300, "voltage": "13.8kV", "connections": [] },
+    
+    { "id": "COM-1", "sector": "Sector 4: Commercial Hub", "type": "consumer", "capacity": 200, "voltage": "4.16kV", "connections": [] },
+    { "id": "COM-2", "sector": "Sector 4: Commercial Hub", "type": "consumer", "capacity": 200, "voltage": "4.16kV", "connections": [] },
+    { "id": "COM-3", "sector": "Sector 4: Commercial Hub", "type": "consumer", "capacity": 200, "voltage": "4.16kV", "connections": [] },
+    
+    { "id": "RES-1", "sector": "Sector 5: Residential Grid", "type": "consumer", "capacity": 100, "voltage": "240V", "connections": [] },
+    { "id": "RES-2", "sector": "Sector 5: Residential Grid", "type": "consumer", "capacity": 100, "voltage": "240V", "connections": [] },
+    { "id": "RES-3", "sector": "Sector 5: Residential Grid", "type": "consumer", "capacity": 100, "voltage": "240V", "connections": [] }
+  ]
+}

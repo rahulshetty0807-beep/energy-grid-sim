@@ -185,7 +185,10 @@ function Sector3DView({ nodes }) {
 // ==========================================
 
 export default function MasterVisualizer() {
-  const { transformers, isBlackout, weather, batteryLevel, gridEfficiency } = useStore();
+  const { 
+  transformers, isBlackout, weather, batteryLevel, gridEfficiency, 
+  startSimulation, stopSimulation, rebootGrid, setWeather 
+} = useStore();
 
   const getStatusColor = (status, isBlackout, isOverloaded) => {
     if (isBlackout || status === 'FAILED') return '#ff1a1a'; 
@@ -287,6 +290,7 @@ export default function MasterVisualizer() {
       </div>
     );
   };
+ 
 
   const sectors = [
     'Sector 1: Generation Core',
@@ -403,10 +407,9 @@ export default function MasterVisualizer() {
 
   .telemetry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   .data-col { display: flex; flex-direction: column; }
-  .data-col .label { font-size: 11px; color: #a0f0ff; letter-spacing: 2px; margin-bottom: 5px; font-weight: bold; }
-  .data-col .value { font-size: 18px; font-weight: 900; color: #ffffff; text-shadow: 0 0 5px rgba(255,255,255,0.5); }
-  .data-col .unit { font-size: 11px; color: #00f3ff; font-weight: normal; margin-left: 4px; }
-
+  .data-col .label { font-size: 11px; color: #00f3ff !important; letter-spacing: 2px; margin-bottom: 5px; font-weight: bold !important; text-shadow: 0 0 5px #00f3ff !important; }
+  .data-col .value { font-size: 18px; font-weight: 900 !important; color: #ffffff !important; text-shadow: 0 0 10px #ffffff !important; }
+  .data-col .unit { font-size: 11px; color: #00f3ff !important; font-weight: normal !important; margin-left: 4px; }
   .load-bar-container { width: 100%; height: 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); overflow: hidden; margin-top: 20px; }
   .load-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
 `}</style>
