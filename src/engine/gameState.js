@@ -219,14 +219,15 @@ const useStore = create((set, get) => ({
       ...t, status: 'ONLINE', temp: 35, load: 0, eff: 1, risk: 0 
     }))
   }))
-  
 }));
 
+// Export the specialized hook for UI performance
 export const useCriticalAlerts = () => {
-  return useStore((state) => ({
-    isBlackout: state.isBlackout,
-    criticalNodes: state.transformers.filter(n => n.risk > 90)
-  }));
+  const store = useStore();
+  return {
+    isBlackout: store.isBlackout,
+    criticalNodes: store.transformers.filter(n => n.risk > 90)
+  };
 };
 
 export default useStore;

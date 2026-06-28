@@ -2,12 +2,19 @@ import React, { useState } from 'react';
 import useStore from '../engine/gameState';
 
 export default function ControlPanel({ layout = 'vertical' }) {
-  const { startSimulation, stopSimulation, repairGrid, triggerWeatherEvent, interval } = useStore();
+  const { 
+    startSimulation, 
+    stopSimulation, 
+    repairGrid, 
+    triggerWeatherEvent, 
+    interval,
+    settings = {} 
+  } = useStore();
   
-  // Local state to track active environmental filters (for glowing active states)
+  // Local state to track active environmental filters
   const [activeEnv, setActiveEnv] = useState('CLEAR');
 
-  // Check if the engine is currently running by looking for the interval
+  // Check if the engine is currently running
   const isRunning = !!interval;
 
   const handleToggleEngine = () => {
@@ -26,7 +33,7 @@ export default function ControlPanel({ layout = 'vertical' }) {
   return (
     <div className={`control-panel layout-${layout}`}>
       
-      {/* --- ENGINE UPLINK (Simplified to 2 Buttons) --- */}
+      {/* --- ENGINE UPLINK --- */}
       <div>
         <h3 className="neon-title">ENGINE UPLINK</h3>
         <div className="button-grid">
@@ -89,7 +96,7 @@ export default function ControlPanel({ layout = 'vertical' }) {
         </div>
       </div>
 
-      {/* --- 100% UN-REDUCED UNIFORM NEON BLUE STYLES --- */}
+      {/* --- CSS STYLES --- */}
       <style>{`
         .control-panel {
           background: #0a0a0f !important;
@@ -103,7 +110,7 @@ export default function ControlPanel({ layout = 'vertical' }) {
           box-shadow: inset 0 0 20px rgba(0,0,0,0.5) !important;
         }
 
-        /* Responsive Layout Toggles */
+        /* Responsive Layouts */
         .layout-vertical {
           display: flex !important;
           flex-direction: column !important;
@@ -137,7 +144,7 @@ export default function ControlPanel({ layout = 'vertical' }) {
           grid-column: span 2 !important;
         }
 
-        /* --- BASE BUTTON - UNIFORM STRUCTURE --- */
+        /* --- BUTTON STYLING --- */
         button {
           background: rgba(0, 243, 255, 0.05) !important;
           border: 1.5px solid #00f3ff !important;
@@ -155,121 +162,20 @@ export default function ControlPanel({ layout = 'vertical' }) {
           text-align: center !important;
         }
 
+        button:hover, button.active {
+          background: rgba(0, 243, 255, 0.2) !important;
+          box-shadow: 0 0 10px #00f3ff !important;
+          border-color: #fff !important;
+          color: #fff !important;
+        }
+
         button:active { 
           transform: scale(0.96) !important; 
         }
 
-        /* Base Cyan Button */
-        .btn-cyan {
-          border: 1.5px solid #00f3ff !important;
-          color: #00f3ff !important;
-          background: rgba(0, 243, 255, 0.05) !important;
-          box-shadow: 0 0 5px rgba(0, 243, 255, 0.2), inset 0 0 5px rgba(0, 243, 255, 0.1) !important;
-        }
-        .btn-cyan:hover {
-          background: rgba(0, 243, 255, 0.15) !important;
-          border-color: #ffffff !important;
-          color: #ffffff !important;
-          box-shadow: 0 0 10px #ffffff, 0 0 20px #00f3ff, inset 0 0 10px #00f3ff !important;
-          text-shadow: 0 0 5px #ffffff !important;
-        }
-
-        /* White Action Button (Save) -> NOW NEON BLUE */
-        .btn-white {
-          border: 1.5px solid #00f3ff !important;
-          color: #00f3ff !important;
-          background: rgba(0, 243, 255, 0.05) !important;
-          box-shadow: 0 0 5px rgba(0, 243, 255, 0.2), inset 0 0 5px rgba(0, 243, 255, 0.1) !important;
-        }
-        .btn-white:hover {
-          background: rgba(0, 243, 255, 0.15) !important;
-          border-color: #ffffff !important;
-          color: #ffffff !important;
-          box-shadow: 0 0 10px #ffffff, 0 0 20px #00f3ff, inset 0 0 10px #00f3ff !important;
-          text-shadow: 0 0 8px #ffffff !important;
-        }
-
-        /* Danger / Reboot Button -> NOW NEON BLUE */
-        .btn-danger { 
-          border: 1.5px solid #00f3ff !important; 
-          color: #00f3ff !important; 
-          background: rgba(0, 243, 255, 0.05) !important;
-          box-shadow: 0 0 5px rgba(0, 243, 255, 0.2), inset 0 0 5px rgba(0, 243, 255, 0.1) !important;
-        }
-        .btn-danger:hover { 
-          background: rgba(0, 243, 255, 0.15) !important; 
-          border-color: #ffffff !important;
-          color: #ffffff !important;
-          box-shadow: 0 0 10px #ffffff, 0 0 20px #00f3ff, inset 0 0 10px #00f3ff !important; 
-          text-shadow: 0 0 5px #ffffff !important; 
-        }
-
-        /* Warning / Repair Button -> NOW NEON BLUE */
-        .btn-warning { 
-          border: 1.5px solid #00f3ff !important; 
-          color: #00f3ff !important; 
-          background: rgba(0, 243, 255, 0.05) !important;
-          box-shadow: 0 0 5px rgba(0, 243, 255, 0.2), inset 0 0 5px rgba(0, 243, 255, 0.1) !important;
-        }
-        .btn-warning:hover { 
-          background: rgba(0, 243, 255, 0.15) !important; 
-          border-color: #ffffff !important;
-          color: #ffffff !important;
-          box-shadow: 0 0 10px #ffffff, 0 0 20px #00f3ff, inset 0 0 10px #00f3ff !important; 
-          text-shadow: 0 0 5px #ffffff !important; 
-        }
-
-        /* --- NEON BLUE ENVIRONMENTAL BUTTONS --- */
+        /* Env Specific Buttons */
         .btn-env {
-          border: 1.5px solid #00f3ff !important;
-          color: #00f3ff !important;
-          background: rgba(0, 243, 255, 0.05) !important;
-          box-shadow: 0 0 5px rgba(0, 243, 255, 0.2), inset 0 0 5px rgba(0, 243, 255, 0.1) !important;
           transition: all 0.3s ease !important;
-        }
-        .btn-env:hover {
-          background: rgba(0, 243, 255, 0.15) !important;
-          border-color: #ffffff !important;
-          color: #ffffff !important;
-          box-shadow: 0 0 10px #ffffff, 0 0 20px #00f3ff, inset 0 0 10px #00f3ff !important;
-          text-shadow: 0 0 5px #ffffff !important;
-        }
-        .btn-env.active { 
-          background: rgba(0, 243, 255, 0.3) !important; 
-          border-color: #ffffff !important;
-          color: #ffffff !important;
-          box-shadow: 0 0 10px #ffffff, 0 0 20px #00f3ff, inset 0 0 10px #00f3ff !important;
-          text-shadow: 0 0 5px #ffffff !important;
-        }
-        
-        /* Storm Active Override -> NOW NEON BLUE */
-        .btn-env.storm.active { 
-          background: rgba(0, 243, 255, 0.3) !important; 
-          border-color: #ffffff !important;
-          color: #ffffff !important;
-          box-shadow: 0 0 10px #ffffff, 0 0 20px #00f3ff, inset 0 0 10px #00f3ff !important;
-          text-shadow: 0 0 5px #ffffff !important;
-        }
-        
-        /* Heatwave Active Override -> NOW NEON BLUE */
-        .btn-env.heatwave {
-          border: 1.5px solid #00f3ff !important;
-          color: #00f3ff !important;
-          background: rgba(0, 243, 255, 0.05) !important;
-          box-shadow: 0 0 5px rgba(0, 243, 255, 0.2), inset 0 0 5px rgba(0, 243, 255, 0.1) !important;
-        }
-        .btn-env.heatwave.active { 
-          background: rgba(0, 243, 255, 0.3) !important; 
-          border-color: #ffffff !important;
-          color: #ffffff !important;
-          box-shadow: 0 0 10px #ffffff, 0 0 20px #00f3ff, inset 0 0 10px #00f3ff !important;
-          text-shadow: 0 0 5px #ffffff !important;
-        }
-
-        @media (max-width: 900px) {
-          .layout-horizontal {
-            grid-template-columns: 1fr !important;
-          }
         }
       `}</style>
     </div>
