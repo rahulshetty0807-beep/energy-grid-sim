@@ -9,7 +9,7 @@ const wss = new WebSocket.Server({ server });
 
 console.log("==========================================");
 console.log("⚡ SCADA HARDWARE SIMULATOR ONLINE ⚡");
-console.log("📡 PORT: 8080 // BIDIRECTIONAL MODE ACTIVE");
+console.log("📡 PORT: DYNAMIC // BIDIRECTIONAL MODE ACTIVE");
 console.log("==========================================");
 
 let globalBattery = 100.0;
@@ -106,7 +106,7 @@ wss.on('connection', (ws) => {
         battery: globalBattery,
         weather: currentWeather,
         demand: globalDemand,
-        gridScore: gridScore // Explicit key mapping
+        gridScore: gridScore
       }));
     }
   }, 1000);
@@ -115,7 +115,8 @@ wss.on('connection', (ws) => {
   ws.on('error', (err) => console.error("Socket error:", err));
 });
 
-// 4. Bind the server to all interfaces
-server.listen(8080, '0.0.0.0', () => {
-  console.log("--- HTTP GATEWAY ANCHORED ON PORT 8080 ---");
+// 4. Bind the server to the environment port or 8080 locally
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`--- HTTP GATEWAY ANCHORED ON PORT ${PORT} ---`);
 });

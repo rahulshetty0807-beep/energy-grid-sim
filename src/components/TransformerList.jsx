@@ -2,11 +2,7 @@ import React from 'react';
 import useStore from '../engine/gameState';
 
 export default function TransformerList() {
-  const { transformers, isBlackout } = useStore();
-
-  // DYNAMIC SECTOR EXTRACTION: Automatically finds all unique sectors from the live data
-  // so it matches your JSON blueprint perfectly without hardcoding.
-  const sectors = [...new Set((transformers || []).map(t => t.sector))];
+  const { gridGroups, isBlackout } = useStore();
 
   const getStatusStyle = (status, isBlackout) => {
     if (isBlackout) return { color: '#ff1a1a', shadow: 'none', bg: 'rgba(255, 26, 26, 0.05)' };
@@ -18,14 +14,14 @@ export default function TransformerList() {
   return (
     <div className="transformer-list-container">
       
-      {sectors.map(sectorName => {
-        const nodes = (transformers || []).filter(t => t.sector === sectorName);
-        if (nodes.length === 0) return null; // Skip rendering if sector has no nodes
+      {/* MAPPING THE 5 GROUPS OF 3 NODES EACH */}
+      {Object.entries(gridGroups).map(([setName, nodes], index) => {
+        if (!nodes || nodes.length === 0) return null;
         
         return (
-          <div key={sectorName} className="sector-group">
+          <div key={setName} className="sector-group">
             <h3 className="sector-header">
-              <span className="sector-title">{sectorName}</span>
+              <span className="sector-title">CLUSTER {index + 1}</span>
               <span className="node-count">NODES: {nodes.length}</span>
             </h3>
             
@@ -33,7 +29,6 @@ export default function TransformerList() {
               {nodes.map(tx => {
                 const style = getStatusStyle(tx.status, isBlackout);
                 const loadRatio = tx.load / tx.cap;
-                // Danger pulse triggers if node is above 90% load
                 const isOverloaded = loadRatio > 0.9 && !isBlackout;
                 
                 return (
@@ -299,7 +294,6 @@ export default function TransformerList() {
           gap: 4px !important;
         }
 
-        /* Responsive Grid Scaling */
         @media (max-width: 1200px) {
           .node-grid { grid-template-columns: repeat(2, 1fr) !important; }
         }

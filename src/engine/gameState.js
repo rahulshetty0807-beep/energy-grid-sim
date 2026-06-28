@@ -104,6 +104,8 @@ const useStore = create((set, get) => ({
   logs: [{ time: new Date().toLocaleTimeString(), msg: "SYSTEM SECURE. AWAITING UPLINK.", type: "INFO" }],
   weather: 'CLEAR',
   transformers: [],
+  // HOLOGRAPHIC GROUPING: Categorized into 5 sets of 3 for 3D view
+  gridGroups: { set1: [], set2: [], set3: [], set4: [], set5: [] },
   settings: { isPaused: false, speed: 1 },
   interval: null,
   
@@ -138,6 +140,15 @@ const useStore = create((set, get) => ({
     const onlineNodes = updatedNodes.filter(n => n.status !== 'FAILED').length;
     const eff = onlineNodes / (updatedNodes.length || 1);
     
+    // Grouping nodes into 5 sets of 3 for the 3D Holographic View
+    const newGroups = {
+      set1: updatedNodes.slice(0, 3),
+      set2: updatedNodes.slice(3, 6),
+      set3: updatedNodes.slice(6, 9),
+      set4: updatedNodes.slice(9, 12),
+      set5: updatedNodes.slice(12, 15)
+    };
+    
     const newHistoryPoint = {
       time: state.time,
       battery: parseFloat(liveData.battery.toFixed(1)),
@@ -147,6 +158,7 @@ const useStore = create((set, get) => ({
     return {
       isLiveMode: true,
       transformers: updatedNodes,
+      gridGroups: newGroups,
       batteryLevel: liveData.battery,
       gridScore: liveData.gridScore,
       weather: liveData.weather || state.weather,
@@ -221,7 +233,6 @@ const useStore = create((set, get) => ({
   }))
 }));
 
-// Export the specialized hook for UI performance
 export const useCriticalAlerts = () => {
   const store = useStore();
   return {

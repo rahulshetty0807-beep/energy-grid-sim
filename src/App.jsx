@@ -18,7 +18,13 @@ export default function App() {
   const loadTopology = useStore((state) => state.loadTopology);
   
   // 2. Establish the Global WebSocket Connection immediately on mount
-  const uplinkStatus = useTelemetrySocket('ws://localhost:8080');
+  const getSocketUrl = () => {
+  if (window.location.hostname === 'localhost') {
+    return 'ws://localhost:8080'; // Local development
+  }
+  return 'wss://energy-grid-backend.onrender.com'; // Production
+};
+  const uplinkStatus = useTelemetrySocket(getSocketUrl());
   
   const [activeTab, setActiveTab] = useState('TELEMETRY');
 
