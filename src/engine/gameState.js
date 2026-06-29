@@ -1,8 +1,33 @@
+// src/engine/gameState.js
+
 import { create } from 'zustand';
+
+// Helper to intelligently group nodes by their actual sector/city instead of random array slicing
+const buildGridGroups = (nodes) => {
+  const groups = {
+    set1: nodes.filter(n => n.sector === 'Sector 1: Generation Core'),
+    set2: nodes.filter(n => n.sector === 'Sector 2: Heavy Transmission'),
+    set3: nodes.filter(n => n.sector === 'Sector 3: Industrial District'),
+    set4: nodes.filter(n => n.sector === 'Sector 4: Commercial Hub'),
+    set5: nodes.filter(n => n.sector === 'Sector 5: Residential Grid')
+  };
+  
+  // Dynamically create groups for injected cities
+  nodes.forEach(n => {
+    if (n.isDynamic || (n.sector && !n.sector.startsWith('Sector'))) {
+      const secName = n.sector || 'UNKNOWN REGION';
+      if (!groups[secName]) groups[secName] = [];
+      groups[secName].push(n);
+    }
+  });
+  
+  return groups;
+};
 
 const buildGridFromConfig = (config) => {
   return config.nodes.map(node => ({
     id: node.id,
+    isDynamic: false,
     sector: node.sector,
     role: node.type === 'generator' ? 'Gen Node' : node.type === 'substation' ? 'Substation' : 'Consumer',
     cap: node.capacity || 250,
@@ -35,19 +60,24 @@ const calculatePhysicsTick = (transformers, weather, baseDemand) => {
   const heatMultiplier = weather === 'HEATWAVE' ? 1.5 : 1.0;
   const coolingPenalty = weather === 'STORM' ? 0.8 : 1.0;
   const loadPerActiveNode = activeNodesCount > 0 ? (baseDemand / activeNodesCount) : 0;
+  
   const updatedNodes = transformers.map(node => {
     if (node.status === 'FAILED') return { ...node, load: 0, eff: 0, temp: 0, risk: 0 }; 
+    
     const simulatedLoad = loadPerActiveNode * (Math.random() * 0.2 + 0.9);
     const loadRatio = simulatedLoad / node.cap;
     let newTemp = node.temp;
     let newStatus = node.status;
     let newCooling = node.cooling;
+    
     if (loadRatio > 0.8) {
       newTemp += (Math.pow(loadRatio, 2) * 3.0 * heatMultiplier) / (newCooling / 100);
     } else {
       newTemp -= (2.0 * coolingPenalty); 
     }
+    
     newTemp = Math.max(30, newTemp);
+    
     if (newTemp > 115 || loadRatio > 1.5) {
       newStatus = 'FAILED';
       newTemp = 0;
@@ -55,13 +85,18 @@ const calculatePhysicsTick = (transformers, weather, baseDemand) => {
       newStatus = 'DEGRADED';
       newCooling = Math.max(10, newCooling - 1);
     }
+    
     const eff = newStatus === 'FAILED' ? 0 : Math.max(0.1, 1 - (newTemp / 250));
     totalEfficiency += eff;
+    
     if (node.role === 'Gen Node') generatedPower += node.cap * eff;
+    
     return { ...node, load: simulatedLoad, temp: newTemp, status: newStatus, cooling: newCooling, eff };
   });
+  
   const gridEfficiency = activeNodesCount === 0 ? 0 : totalEfficiency / activeNodesCount;
   const isBlackout = activeNodesCount / transformers.length < 0.3; 
+  
   return { updatedNodes, gridEfficiency, isBlackout, generatedPower };
 };
 
@@ -73,10 +108,11 @@ const useStore = create((set, get) => ({
   gridEfficiency: 1.0,
   isBlackout: false,
   isLiveMode: false,
+  hasCustomTopology: false, // FIREWALL FLAG
   history: [],
   logs: [{ time: new Date().toLocaleTimeString(), msg: "SYSTEM SECURE. AWAITING UPLINK.", type: "INFO" }],
   weather: 'CLEAR',
-  transformers: [],
+  transformers: [], // Ensured initial state is empty
   gridGroups: { set1: [], set2: [], set3: [], set4: [], set5: [] },
   settings: { isPaused: false, speed: 1 },
   interval: null,
@@ -90,52 +126,79 @@ const useStore = create((set, get) => ({
   incidentLog: [],
   peakDemandRecorded: 500,
   autoRecoveryEnabled: true,
+  
+  mapCenter: [47.6062, -122.3321], 
 
   setSocket: (wsInstance) => set({ socket: wsInstance }),
 
   loadTopology: (jsonConfig) => {
+    // Only load if we haven't already performed a dynamic search
+    if (get().hasCustomTopology) return;
+    
     const liveGrid = buildGridFromConfig(jsonConfig);
     set({ 
       transformers: liveGrid, 
+      gridGroups: buildGridGroups(liveGrid),
       demand: jsonConfig.baseDemand || 500,
-      peakDemandRecorded: jsonConfig.baseDemand || 500
+      peakDemandRecorded: jsonConfig.baseDemand || 500,
+      hasCustomTopology: false // Reset flag on fresh load
     });
     get().addLog(`TOPOLOGY LOADED: ${jsonConfig.gridName || 'GRID'}`, 'SUCCESS');
   },
 
-  updateFromTelemetry: (liveData) => set((state) => {
+ updateFromTelemetry: (liveData) => set((state) => {
     if (!liveData || typeof liveData !== 'object' || !Array.isArray(liveData.nodes)) {
       return state;
     }
-    const updatedNodes = liveData.nodes.map(node => {
+
+    // THE STRICT GATEKEEPER:
+    // If the user hasn't actively searched for a city yet, REJECT the server's nodes.
+    // We update the clock and battery, but keep the grid absolutely empty.
+    if (!state.hasCustomTopology) {
+      return {
+        batteryLevel: liveData.battery ?? state.batteryLevel,
+        time: state.time + 1,
+        lastHeartbeat: Date.now()
+      };
+    }
+
+    // If we DO have a custom city loaded, apply telemetry logic ONLY to our custom nodes.
+    const baseNodes = state.transformers;
+
+    const updatedNodes = baseNodes.map(node => {
       const prevNode = state.transformers.find(t => t.id === node.id);
       const riskScore = calculateRisk(node, prevNode);
+      
+      // Since the remote server isn't tracking our dynamic city, we simulate the live telemetry variance locally
+      let simTemp = node.temp;
+      if (!state.settings?.isPaused) {
+         simTemp = Math.max(30, Math.min(120, simTemp + (Math.random() * 2 - 1)));
+      }
+
       return {
         ...node,
+        temp: simTemp,
         risk: riskScore,
         status: riskScore > 90 ? 'CRITICAL_WARNING' : node.status
       };
     });
+
     const onlineNodes = updatedNodes.filter(n => n.status !== 'FAILED').length;
     const eff = onlineNodes / (updatedNodes.length || 1);
-    const newGroups = {
-      set1: updatedNodes.slice(0, 3),
-      set2: updatedNodes.slice(3, 6),
-      set3: updatedNodes.slice(6, 9),
-      set4: updatedNodes.slice(9, 12),
-      set5: updatedNodes.slice(12, 15)
-    };
+    
     const newHistoryPoint = {
       time: state.time,
       battery: typeof liveData.battery === 'number' ? parseFloat(liveData.battery.toFixed(1)) : 0,
       efficiency: Math.floor(eff * 100)
     };
+    
     const currentDemand = liveData.demand || state.demand;
     const nextPeak = currentDemand > state.peakDemandRecorded ? currentDemand : state.peakDemandRecorded;
+    
     return {
       isLiveMode: true,
       transformers: updatedNodes,
-      gridGroups: newGroups,
+      gridGroups: buildGridGroups(updatedNodes),
       batteryLevel: liveData.battery ?? state.batteryLevel,
       gridScore: liveData.gridScore ?? state.gridScore,
       weather: liveData.weather || state.weather,
@@ -155,14 +218,18 @@ const useStore = create((set, get) => ({
     if (get().isLiveMode) return; 
     const state = get();
     if (state.settings.isPaused || state.isBlackout || state.transformers.length === 0) return;
+    
     const { updatedNodes, gridEfficiency, isBlackout, generatedPower } = calculatePhysicsTick(
       state.transformers, state.weather, state.demand
     );
+    
     const powerDeficit = state.demand - generatedPower;
     let newBattery = Math.max(0, Math.min(100, state.batteryLevel - (powerDeficit * 0.05)));
     const totalBlackout = isBlackout || (newBattery === 0 && powerDeficit > 0);
+    
     set({
       transformers: updatedNodes,
+      gridGroups: buildGridGroups(updatedNodes), // Keep groups synced with physics
       gridEfficiency,
       batteryLevel: newBattery,
       isBlackout: totalBlackout,
@@ -196,12 +263,17 @@ const useStore = create((set, get) => ({
     logs: [{ time: new Date().toLocaleTimeString(), msg, type }, ...state.logs].slice(0, 50) 
   })),
 
-  repairGrid: () => set((state) => ({
-    isBlackout: false,
-    transformers: state.transformers.map(t => ({ 
+  repairGrid: () => set((state) => {
+    const repairedNodes = state.transformers.map(t => ({ 
       ...t, status: 'ONLINE', temp: 35, load: 0, eff: 1, risk: 0 
-    }))
-  })),
+    }));
+    return {
+      isBlackout: false,
+      transformers: repairedNodes,
+      gridGroups: buildGridGroups(repairedNodes),
+      hasCustomTopology: false // Resets the map back to the server's default Seattle grid
+    };
+  }),
 
   setSelectedNodeId: (id) => set({ selectedNodeId: id }),
   
@@ -239,6 +311,33 @@ const useStore = create((set, get) => ({
       return { settings: { ...state.settings, speed: newSpeed }, interval: updatedInterval };
     }
     return { settings: { ...state.settings, speed: newSpeed } };
+  }),
+
+ setMapCenter: (coords) => set({ mapCenter: coords }),
+
+  addDynamicNodes: (newNodes, newLinks, cityName = "UNKNOWN CITY") => set((state) => {
+    const permanentNodes = state.transformers.filter(n => n.isDynamic === false);
+    
+    // Forcefully overwrite the sector with the cityName provided by your search
+    // Using || "UNKNOWN CITY" as a final safety fallback
+    const safeName = (cityName && cityName.trim() !== "") ? cityName : "UNKNOWN CITY";
+    
+    const taggedNewNodes = newNodes.map(n => ({
+      ...n,
+      isDynamic: true,
+      sector: safeName.toUpperCase(), // This ensures the sidebar reads the name
+      load: n.load || 0,
+      temp: n.temp || 35,
+      status: n.status || 'ONLINE'
+    }));
+
+    const finalNodes = [...permanentNodes, ...taggedNewNodes];
+    
+    return {
+      transformers: finalNodes,
+      gridGroups: buildGridGroups(finalNodes),
+      hasCustomTopology: true
+    };
   })
 }));
 

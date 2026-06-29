@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import useStore from './engine/gameState';
 import { useTelemetrySocket } from './engine/useTelemetrySocket'; 
-import omegaConfig from './config/omegaGrid.json'; 
 import RiskAlert from './components/RiskAlert';
 import MasterVisualizer from './components/MasterVisualizer';
 import Dashboard from './components/Dashboard';
@@ -93,22 +92,10 @@ const horizontalControlStyle = {
 };
 
 export default function App() {
-  const loadTopology = useStore((state) => state.loadTopology);
-  
   const socketUrl = getSocketUrl();
   const uplinkStatus = useTelemetrySocket(socketUrl);
   
   const [activeTab, setActiveTab] = useState('TELEMETRY');
-
-  useEffect(() => {
-    const initializeTopology = () => {
-      if (typeof loadTopology === 'function') {
-        loadTopology(omegaConfig);
-        console.log("Grid Blueprint Loaded. Handing control to SCADA Uplink...");
-      }
-    };
-    initializeTopology();
-  }, [loadTopology]);
 
   const getStatusColor = () => {
     if (uplinkStatus === 'CONNECTED') {

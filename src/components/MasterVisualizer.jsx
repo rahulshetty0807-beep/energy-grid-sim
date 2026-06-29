@@ -1,7 +1,7 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import useStore from '../engine/gameState'; 
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Text, Grid, Environment } from '@react-three/drei';
+import { OrbitControls, Text, Grid } from '@react-three/drei';
 
 // ==========================================
 // 1. NEON TELEMETRY UI COMPONENTS
@@ -162,14 +162,23 @@ function Sector3DView({ groupNodes }) {
         <ambientLight intensity={0.2} />
         <directionalLight position={[5, 10, 5]} intensity={1.5} color="#ffffff" />
         
-        {/* REMOVED: <Environment preset="night" /> because the PMNDRS asset server is returning a 400 error */}
+        {/* Environment preset removed to prevent 400 errors */}
         
         <Grid infiniteGrid fadeDistance={25} sectionColor={gridColor} cellColor="#222222" sectionThickness={1.5} cellThickness={0.5} />
         
         {/* Render 3 nodes per cluster in a grid layout (3x1) */}
+        {/* Render dynamically into a flexible 2D grid instead of a single overlapping line */}
         {groupNodes.map((tx, i) => {
-          const x = (i % 3) * 3 - 3; 
-          return <HologramNode key={tx.id} tx={tx} position={[x, 0, 0]} />;
+          const itemsPerRow = 4; // Adjust this to make the grid wider or narrower
+          const spacing = 3;
+          
+          // Spread them left-to-right
+          const x = (i % itemsPerRow) * spacing - ((itemsPerRow * spacing) / 2) + (spacing / 2);
+          
+          // Spread them front-to-back
+          const z = Math.floor(i / itemsPerRow) * spacing - 3; 
+          
+          return <HologramNode key={tx.id} tx={tx} position={[x, 0, z]} />;
         })}
         
         <OrbitControls autoRotate={!isBlackout} autoRotateSpeed={0.8} makeDefault />
@@ -177,6 +186,70 @@ function Sector3DView({ groupNodes }) {
     </div>
   );
 }
+
+// ==========================================
+// 2.5 SINGLE NODE DIGITAL TWIN (FOR SIDEBAR)
+// ==========================================
+
+export const HologramCore = ({ data }) => {
+  const meshRef = useRef();
+  
+  const safeData = data || { load: 0, temp: 0, status: 'OFFLINE', cap: 100 };
+  const intensity = useMemo(() => {
+    return safeData.load / (safeData.cap || 1); 
+  }, [safeData.load, safeData.cap]);
+
+  const color = useMemo(() => {
+    if (safeData.status === 'FAILED') return '#ff1a1a';
+    if (safeData.temp > 85) return '#ffb700';
+    return '#00f3ff';
+  }, [safeData.status, safeData.temp]);
+
+  useFrame((state, delta) => {
+    if (meshRef.current) {
+      const rotationSpeed = safeData.status === 'FAILED' ? 0.2 : (0.5 + intensity * 2);
+      meshRef.current.rotation.y += delta * rotationSpeed;
+    }
+  });
+
+  return (
+    <group>
+      <mesh ref={meshRef} position={[0, 0, 0]}>
+        <cylinderGeometry args={[1, 1, 3, 32]} />
+        <meshStandardMaterial 
+          color={color} 
+          emissive={color} 
+          emissiveIntensity={safeData.status === 'FAILED' ? 0.2 : (1 + intensity * 2)} 
+          wireframe={safeData.status === 'OFFLINE'}
+          transparent
+          opacity={0.8}
+        />
+      </mesh>
+      
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+         <torusGeometry args={[2, 0.05, 16, 100]} />
+         <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2} />
+      </mesh>
+    </group>
+  );
+};
+
+export const DigitalTwin = ({ node }) => {
+  if (!node) return null;
+
+  return (
+    <div className="digital-twin-container" style={{ width: '100%', height: '250px', background: '#020205', borderRadius: '8px', overflow: 'hidden' }}>
+      <Canvas camera={{ position: [0, 2, 5], fov: 45 }}>
+        <ambientLight intensity={0.2} />
+        <pointLight position={[10, 10, 10]} intensity={1} color="#00f3ff" />
+        
+        <HologramCore data={node} />
+        
+        <OrbitControls enableZoom={false} enablePan={false} autoRotate autoRotateSpeed={0.5} />
+      </Canvas>
+    </div>
+  );
+};
 
 // ==========================================
 // 3. MASTER VISUALIZER ASSEMBLY
@@ -192,26 +265,37 @@ export default function MasterVisualizer() {
     return '#00f3ff'; 
   };
 
-  const sectorToGroupMap = {
-    'Sector 1: Generation Core': gridGroups.set1,
-    'Sector 2: Heavy Transmission': gridGroups.set2,
-    'Sector 3: Industrial District': gridGroups.set3,
-    'Sector 4: Commercial Hub': gridGroups.set4,
-    'Sector 5: Residential Grid': gridGroups.set5
+  // Helper to map default keys back to their cool display names, falling back to the raw key for dynamic cities
+  const getSectorDisplayName = (key) => {
+    const defaultNames = {
+      'set1': 'Sector 1: Generation Core',
+      'set2': 'Sector 2: Heavy Transmission',
+      'set3': 'Sector 3: Industrial District',
+      'set4': 'Sector 4: Commercial Hub',
+      'set5': 'Sector 5: Residential Grid'
+    };
+    return defaultNames[key] || key;
   };
 
-  const renderSector = (sectorName) => {
-    const nodes = sectorToGroupMap[sectorName] || [];
+  // Instead of hardcoded sector names:
+  const activeSectors = Object.keys(gridGroups).filter(key => gridGroups[key].length > 0);
+
+ const renderSector = (sectorKey) => {
+    const nodes = gridGroups[sectorKey] || [];
     if (nodes.length === 0) return null;
+
+    // Force it to use the sector property from the nodes instead of the key
+    const sectorName = nodes[0].sector || "UNKNOWN REGION";
     
     return (
-      <div className="tier-section" key={sectorName}>
+      <div className="tier-section" key={sectorKey}>
         <div className="sector-header">
           <h3 className="neon-blue-heading">{sectorName}</h3>
           <div className="neon-blue-bar"></div>
           <span className="sector-node-count">{nodes.length} NODES ONLINE</span>
         </div>
         
+        {/* This now renders whatever city you scanned or the default groups! */}
         <Sector3DView groupNodes={nodes} />
 
         <div className="transformer-grid">
@@ -290,8 +374,6 @@ export default function MasterVisualizer() {
     );
   };
 
-  const sectors = ['Sector 1: Generation Core', 'Sector 2: Heavy Transmission', 'Sector 3: Industrial District', 'Sector 4: Commercial Hub', 'Sector 5: Residential Grid'];
-
   return (
     <div className="master-visualizer cyberpunk-theme">
       <div className="dynamic-black-bg"></div>
@@ -321,7 +403,8 @@ export default function MasterVisualizer() {
         </header>
         
         <div className="network-topology">
-          {sectors.map(renderSector)}
+          {/* Renders dynamically based on active sectors */}
+          {activeSectors.map(renderSector)}
         </div>
       </div>
 
